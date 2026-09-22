@@ -114,6 +114,9 @@ usuarios y membresías de proyecto, y rechazo de escrituras no autorizadas.
 8. Consultar y reevaluar la Bandeja de riesgos (`Riesgos` / botón
    "Reevaluar riesgos"), verificando que no se duplican.
 9. Revisar el histórico de actividad por proyecto.
+10. Arrastrar una mezcla/entrega/tarea en el Calendario (vistas Día/Semana/
+    Mes/Agenda) y comprobar que la fecha persiste en `Episode`/`Task` y que
+    el motor de riesgos se reevalúa automáticamente al mover una mezcla.
 
 Todo lo anterior persiste en `backend/soundxpost.db` (SQLite) y se sirve a
 través de la API real — no hay datos hardcodeados en el frontend.
@@ -125,11 +128,12 @@ través de la API real — no hay datos hardcodeados en el frontend.
 | CRUD de proyectos, episodios, tareas, ADR, outputs, delivery, archivo | **Implementado** |
 | Autenticación local (JWT) y matriz de permisos por rol | **Implementado** — ver docs/SECURITY.md |
 | Membresías de proyecto (`ProjectMembership`), colaboradores de tarea | **Implementado** |
+| Calendario interactivo (Día/Semana/Mes/Agenda) con drag-and-drop | **Implementado** — React Big Calendar (MIT) |
 | Motor de riesgos determinista (9 reglas del enunciado → 6 implementadas en el MVP) | **Implementado** |
 | Registro de actividad (event log) | **Implementado** |
 | Dashboard "Centro Operativo" | **Implementado** |
 | Datos DEMO ficticios | **Implementado** |
-| Calendario interactivo (drag-and-drop), Gantt, notificaciones/email | **Pendiente** — ver docs/BACKLOG.md (Milestone 2.3+) |
+| Calendario interactivo (drag-and-drop), Gantt, notificaciones/email | **Gantt y notificaciones pendientes** — ver docs/BACKLOG.md (Milestone 2.4+) |
 | SSO/OIDC corporativo | **Pendiente** (requiere aprobación de IT) |
 | Integración con Microsoft Graph / Outlook / Planner | **Pendiente de integración** (requiere aprobación de IT) |
 | Filesystem Scanner (SMB) | **Pendiente de integración** |

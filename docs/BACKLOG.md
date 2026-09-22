@@ -6,12 +6,16 @@
   por defecto (sin workaround inseguro).
 - [x] **M2.2** — Autenticación JWT local, `ProjectMembership`, colaboradores
   de tarea, matriz de roles verificada en backend (ver docs/SECURITY.md).
-- [ ] **M2.3** — Modelo de eventos de calendario (`CalendarEvent`), vistas
+- [x] **M2.3** — Modelo de eventos de calendario (`CalendarEvent`), vistas
   Día/Semana/Mes/Agenda, drag-and-drop con librería MIT (React Big Calendar +
   addon DnD), sincronización con `Episode.mix_date`/`delivery_date` sin
-  duplicar la fuente de verdad, zona horaria Europe/Madrid.
-- [ ] **M2.4** — Filtros de calendario (proyecto/episodio/usuario/departamento/
-  tipo/estado) y vista Gantt (Frappe Gantt, MIT) con dependencias
+  duplicar la fuente de verdad (el feed unificado `GET /api/calendar/events`
+  mezcla eventos reales con mezclas/entregas/tareas derivadas de sus
+  entidades propias). Mover una mezcla/entrega reevalúa el motor de riesgos
+  automáticamente. Zona horaria Europe/Madrid en `CalendarEvent.timezone`.
+- [ ] **M2.4** — Filtros de calendario avanzados (episodio/departamento/
+  estado — proyecto y usuario ya implementados en M2.3) y vista Gantt
+  (Frappe Gantt, MIT) con dependencias
   EDITORIAL→CONFORM→EDITING→MIX→OUTPUT→QC→DELIVERY.
 - [ ] **M2.5** — Bandeja de notificaciones internas + Outbox de email
   simulado (modo DEMO, sin envíos externos reales), política de

@@ -35,6 +35,14 @@ task_collaborators = Table(
     Column("user_id", ForeignKey("users.id"), primary_key=True),
 )
 
+# Many-to-many: participants confirmed on a manually-created calendar event.
+event_participants = Table(
+    "event_participants",
+    Base.metadata,
+    Column("event_id", ForeignKey("calendar_events.id"), primary_key=True),
+    Column("user_id", ForeignKey("users.id"), primary_key=True),
+)
+
 
 class User(Base):
     __tablename__ = "users"
@@ -138,6 +146,47 @@ class Task(Base):
     @property
     def collaborator_ids(self) -> list[int]:
         return [u.id for u in self.collaborators]
+
+
+class CalendarEvent(Base):
+    """A manually-created production event (ADR session, QC date, reconform, etc.).
+
+    Scheduling milestones that already live on other entities (mix date on
+    Episode, delivery date on Episode, due date on Task) are NOT duplicated
+    here — the calendar API merges those directly from their source of
+    truth so there is never a second, possibly stale, date for the same
+    fact. This table only stores events that have no other home.
+    """
+
+    __tablename__ = "calendar_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
+    episode_id: Mapped[Optional[int]] = mapped_column(ForeignKey("episodes.id"), nullable=True)
+    title: Mapped[str] = mapped_column(String(200))
+    event_type: Mapped[str] = mapped_column(String(40))  # ADR_SESSION, QC, RECONFORM, CUSTOM
+    start: Mapped[datetime] = mapped_column(DateTime)
+    end: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    all_day: Mapped[bool] = mapped_column(Boolean, default=False)
+    timezone: Mapped[str] = mapped_column(String(60), default="Europe/Madrid")
+    responsible_user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    related_task_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tasks.id"), nullable=True)
+    related_output_id: Mapped[Optional[int]] = mapped_column(ForeignKey("outputs.id"), nullable=True)
+    created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    updated_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    project: Mapped["Project"] = relationship()
+    episode: Mapped[Optional["Episode"]] = relationship()
+    responsible_user: Mapped[Optional["User"]] = relationship(foreign_keys=[responsible_user_id])
+    participants: Mapped[list["User"]] = relationship(secondary=event_participants)
+
+    @property
+    def participant_ids(self) -> list[int]:
+        return [u.id for u in self.participants]
 
 
 class ADREntry(Base):

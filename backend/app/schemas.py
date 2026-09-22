@@ -351,3 +351,66 @@ class ActivityLogOut(ORMModel):
     new_state: Optional[str] = None
     evidence_ref: Optional[str] = None
     created_at: datetime
+
+
+# --------------------------------------------------------------- Calendar ----
+class CalendarEventBase(BaseModel):
+    project_id: int
+    episode_id: Optional[int] = None
+    title: str
+    event_type: str = "CUSTOM"  # ADR_SESSION, QC, RECONFORM, CUSTOM
+    start: datetime
+    end: Optional[datetime] = None
+    all_day: bool = False
+    timezone: str = "Europe/Madrid"
+    responsible_user_id: Optional[int] = None
+    description: Optional[str] = None
+    related_task_id: Optional[int] = None
+    related_output_id: Optional[int] = None
+
+
+class CalendarEventCreate(CalendarEventBase):
+    participant_ids: list[int] = []
+
+
+class CalendarEventUpdate(BaseModel):
+    title: Optional[str] = None
+    event_type: Optional[str] = None
+    start: Optional[datetime] = None
+    end: Optional[datetime] = None
+    all_day: Optional[bool] = None
+    responsible_user_id: Optional[int] = None
+    description: Optional[str] = None
+    participant_ids: Optional[list[int]] = None
+
+
+class CalendarEventOut(CalendarEventBase):
+    id: int
+    created_by_id: Optional[int] = None
+    updated_by_id: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+    participant_ids: list[int] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CalendarFeedItem(BaseModel):
+    """A unified, read-model item merging real CalendarEvents with milestones
+    that live on other entities (episode mix/delivery dates, task due dates).
+    `source` + `source_id` tell the frontend which API to call to move/edit it.
+    """
+
+    id: str
+    source: str  # CALENDAR_EVENT, EPISODE_MIX, EPISODE_DELIVERY, TASK
+    source_id: int
+    project_id: int
+    episode_id: Optional[int] = None
+    title: str
+    event_type: str
+    start: datetime
+    end: Optional[datetime] = None
+    all_day: bool = False
+    responsible_user_id: Optional[int] = None
+    status: Optional[str] = None
+    editable: bool = True

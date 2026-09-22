@@ -3,14 +3,14 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import models
+from app import models  # noqa: F401 — ensures models are registered with Base.metadata
 from app.config import settings
-from app.database import Base, engine
 from app.routers import (
     activity,
     adr,
     archive,
     auth,
+    calendar,
     dashboard,
     delivery,
     episodes,
@@ -20,10 +20,9 @@ from app.routers import (
     users,
 )
 
-# MVP bootstrap: tables are created directly. Alembic migrations (see
-# backend/alembic) are the source of truth once the schema stabilizes /
-# on the PostgreSQL migration path.
-Base.metadata.create_all(bind=engine)
+# Alembic migrations (backend/alembic) are the source of truth for the schema.
+# Run `alembic upgrade head` before starting the app; this module no longer
+# calls Base.metadata.create_all() to avoid schema drift between the two.
 
 app = FastAPI(
     title=settings.app_name,
@@ -48,6 +47,7 @@ app.include_router(delivery.router)
 app.include_router(archive.router)
 app.include_router(risks.router)
 app.include_router(activity.router)
+app.include_router(calendar.router)
 app.include_router(users.router)
 app.include_router(dashboard.router)
 

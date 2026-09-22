@@ -174,3 +174,34 @@ export interface DashboardSummary {
   recent_activity: ActivityEntry[];
   active_projects: Project[];
 }
+
+export type CalendarSource = "CALENDAR_EVENT" | "EPISODE_MIX" | "EPISODE_DELIVERY" | "TASK";
+
+export interface CalendarFeedItem {
+  id: string;
+  source: CalendarSource;
+  source_id: number;
+  project_id: number;
+  episode_id: number | null;
+  title: string;
+  event_type: string;
+  start: string;
+  end: string | null;
+  all_day: boolean;
+  responsible_user_id: number | null;
+  status: string | null;
+  editable: boolean;
+}
+
+export interface CalendarEventPayload {
+  project_id: number;
+  episode_id?: number | null;
+  title: string;
+  event_type: string;
+  start: string;
+  end?: string | null;
+  all_day?: boolean;
+  responsible_user_id?: number | null;
+  description?: string | null;
+  participant_ids?: number[];
+}

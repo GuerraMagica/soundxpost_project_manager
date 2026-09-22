@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app import auth, models, schemas
 from app.activity import log_activity
 from app.database import get_db
+from app.risk_engine.rules import run_risk_engine
 
 router = APIRouter(prefix="/api/episodes", tags=["episodes"])
 
@@ -63,6 +64,7 @@ def update_episode(
         raise HTTPException(status_code=403, detail="No tienes permiso para modificar este episodio")
     old_status = episode.status
     old_mix_date = episode.mix_date
+    old_delivery_date = episode.delivery_date
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(episode, field, value)
     db.flush()
@@ -88,6 +90,23 @@ def update_episode(
             old_state=str(old_mix_date) if old_mix_date else None,
             new_state=str(episode.mix_date),
         )
+    if payload.delivery_date and payload.delivery_date != old_delivery_date:
+        log_activity(
+            db,
+            project_id=episode.project_id,
+            episode_id=episode.id,
+            event_type="DELIVERY_DATE_CHANGED",
+            entity_type="EPISODE",
+            entity_id=episode.id,
+            old_state=str(old_delivery_date) if old_delivery_date else None,
+            new_state=str(episode.delivery_date),
+        )
     db.commit()
+    # A moved mix/delivery date can change which risks apply — re-evaluate
+    # immediately so the risk inbox reflects the new schedule.
+    if (payload.mix_date and payload.mix_date != old_mix_date) or (
+        payload.delivery_date and payload.delivery_date != old_delivery_date
+    ):
+        run_risk_engine(db)
     db.refresh(episode)
     return episode

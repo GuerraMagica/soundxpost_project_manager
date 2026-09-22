@@ -3,6 +3,8 @@ import type {
   ADREntry,
   ActivityEntry,
   ArchiveRecord,
+  CalendarEventPayload,
+  CalendarFeedItem,
   DashboardSummary,
   DeliveryPackage,
   Episode,
@@ -100,4 +102,13 @@ export const usersApi = {
 
 export const dashboardApi = {
   summary: () => api.get<DashboardSummary>("/api/dashboard/summary"),
+};
+
+export const calendarApi = {
+  feed: (filters: { project_ids?: string; user_id?: number; event_type?: string } = {}) =>
+    api.get<CalendarFeedItem[]>(`/api/calendar/events${qs(filters)}`),
+  createEvent: (payload: CalendarEventPayload) => api.post<CalendarFeedItem>("/api/calendar/events", payload),
+  updateEvent: (id: number, payload: Partial<CalendarEventPayload>) =>
+    api.patch<CalendarFeedItem>(`/api/calendar/events/${id}`, payload),
+  deleteEvent: (id: number) => api.del<void>(`/api/calendar/events/${id}`),
 };
