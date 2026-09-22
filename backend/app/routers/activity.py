@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app import models, schemas
+from app import auth, models, schemas
 from app.database import get_db
 
 router = APIRouter(prefix="/api/activity", tags=["activity"])
@@ -13,6 +13,7 @@ router = APIRouter(prefix="/api/activity", tags=["activity"])
 def list_activity(
     project_id: Optional[int] = None,
     limit: int = 50,
+    current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
     query = db.query(models.ActivityLog)

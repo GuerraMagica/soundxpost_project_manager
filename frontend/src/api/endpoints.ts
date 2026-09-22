@@ -8,10 +8,17 @@ import type {
   Episode,
   Output,
   Project,
+  ProjectMembership,
   Risk,
   Task,
   User,
 } from "../types";
+
+export const authApi = {
+  login: (email: string, password: string) =>
+    api.post<{ access_token: string; token_type: string; user: User }>("/api/auth/login", { email, password }),
+  me: () => api.get<User>("/api/auth/me"),
+};
 
 export const projectsApi = {
   list: (status?: string) => api.get<Project[]>(`/api/projects${qs({ status_filter: status })}`),
@@ -19,6 +26,10 @@ export const projectsApi = {
   create: (payload: Partial<Project>) => api.post<Project>("/api/projects", payload),
   update: (id: number, payload: Partial<Project>) => api.patch<Project>(`/api/projects/${id}`, payload),
   episodes: (id: number) => api.get<Episode[]>(`/api/projects/${id}/episodes`),
+  members: (id: number) => api.get<ProjectMembership[]>(`/api/projects/${id}/members`),
+  addMember: (id: number, userId: number, roleInProject?: string) =>
+    api.post<ProjectMembership>(`/api/projects/${id}/members`, { user_id: userId, role_in_project: roleInProject }),
+  removeMember: (id: number, userId: number) => api.del<void>(`/api/projects/${id}/members/${userId}`),
 };
 
 export const episodesApi = {
@@ -80,6 +91,11 @@ export const activityApi = {
 
 export const usersApi = {
   list: () => api.get<User[]>("/api/users"),
+  create: (payload: { name: string; email: string; role: string; department?: string; password: string }) =>
+    api.post<User>("/api/users", payload),
+  update: (id: number, payload: Partial<{ name: string; role: string; department: string; is_active: boolean; password: string }>) =>
+    api.patch<User>(`/api/users/${id}`, payload),
+  projects: (id: number) => api.get<Project[]>(`/api/users/${id}/projects`),
 };
 
 export const dashboardApi = {

@@ -12,16 +12,28 @@ from typing import Optional
 
 from sqlalchemy import (
     Boolean,
+    Column,
     Date,
     DateTime,
     ForeignKey,
     Integer,
     String,
+    Table,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+# Many-to-many: additional collaborators on a task, distinct from the single
+# principal `assignee_id` on Task.
+task_collaborators = Table(
+    "task_collaborators",
+    Base.metadata,
+    Column("task_id", ForeignKey("tasks.id"), primary_key=True),
+    Column("user_id", ForeignKey("users.id"), primary_key=True),
+)
 
 
 class User(Base):
@@ -31,7 +43,33 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(120))
     email: Mapped[str] = mapped_column(String(200), unique=True)
     role: Mapped[str] = mapped_column(String(40))  # ADMIN, SUPERVISOR, COORDINATOR, EDITOR, MIXER, QC, ARCHIVE, VIEWER
+    department: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    hashed_password: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    memberships: Mapped[list["ProjectMembership"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class ProjectMembership(Base):
+    """A user's participation in a project — distinct from a single task assignment.
+
+    A user can belong to several projects at once (e.g. a supervisor across
+    shows, an editor across two episodes of the same project).
+    """
+
+    __tablename__ = "project_memberships"
+    __table_args__ = (UniqueConstraint("project_id", "user_id", name="uq_project_user"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    role_in_project: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    project: Mapped["Project"] = relationship(back_populates="memberships")
+    user: Mapped["User"] = relationship(back_populates="memberships")
 
 
 class Project(Base):
@@ -53,6 +91,7 @@ class Project(Base):
 
     episodes: Mapped[list["Episode"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     tasks: Mapped[list["Task"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    memberships: Mapped[list["ProjectMembership"]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
 
 class Episode(Base):
@@ -93,7 +132,12 @@ class Task(Base):
 
     project: Mapped["Project"] = relationship(back_populates="tasks")
     episode: Mapped[Optional["Episode"]] = relationship()
-    assignee: Mapped[Optional["User"]] = relationship()
+    assignee: Mapped[Optional["User"]] = relationship(foreign_keys=[assignee_id])
+    collaborators: Mapped[list["User"]] = relationship(secondary=task_collaborators)
+
+    @property
+    def collaborator_ids(self) -> list[int]:
+        return [u.id for u in self.collaborators]
 
 
 class ADREntry(Base):

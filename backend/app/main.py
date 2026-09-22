@@ -10,6 +10,7 @@ from app.routers import (
     activity,
     adr,
     archive,
+    auth,
     dashboard,
     delivery,
     episodes,
@@ -38,6 +39,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(episodes.router)
 app.include_router(tasks.router)

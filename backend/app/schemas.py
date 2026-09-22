@@ -17,6 +17,55 @@ class UserOut(ORMModel):
     name: str
     email: str
     role: str
+    department: Optional[str] = None
+    is_active: bool
+    is_demo: bool
+
+
+class UserCreate(BaseModel):
+    name: str
+    email: str
+    role: str
+    department: Optional[str] = None
+    password: str
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    department: Optional[str] = None
+    is_active: Optional[bool] = None
+    password: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
+
+
+class ProjectMembershipBase(BaseModel):
+    user_id: int
+    role_in_project: Optional[str] = None
+
+
+class ProjectMembershipCreate(ProjectMembershipBase):
+    pass
+
+
+class ProjectMembershipOut(ProjectMembershipBase):
+    id: int
+    project_id: int
+    created_at: datetime
+    user: UserOut
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 
 # ------------------------------------------------------------- Projects ----
@@ -103,7 +152,7 @@ class TaskBase(BaseModel):
 
 
 class TaskCreate(TaskBase):
-    pass
+    collaborator_ids: list[int] = []
 
 
 class TaskUpdate(BaseModel):
@@ -117,6 +166,7 @@ class TaskUpdate(BaseModel):
     due_date: Optional[date] = None
     depends_on_task_id: Optional[int] = None
     evidence_ref: Optional[str] = None
+    collaborator_ids: Optional[list[int]] = None
 
 
 class TaskOut(TaskBase):
@@ -124,6 +174,7 @@ class TaskOut(TaskBase):
     origin_risk_id: Optional[int] = None
     created_at: datetime
     resolved_at: Optional[datetime] = None
+    collaborator_ids: list[int] = []
 
     model_config = ConfigDict(from_attributes=True)
 

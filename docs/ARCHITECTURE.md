@@ -28,13 +28,29 @@ flowchart LR
 - El motor de riesgos es una función Python pura sobre el estado de la base
   de datos; no depende de IA ni de servicios externos.
 
+## Autenticación y autorización (M2.2)
+
+- `app/auth.py` concentra hashing de contraseñas (bcrypt), emisión/validación
+  de JWT y las dependencias FastAPI `get_current_user`, `require_roles(...)`
+  y `ensure_project_access(...)`. Está deliberadamente aislado del resto del
+  backend para poder sustituirlo por SSO/OIDC corporativo sin tocar routers
+  de negocio.
+- Todo router mutador exige un usuario autenticado; los que operan sobre un
+  proyecto concreto exigen además que el usuario sea `ADMIN` o tenga una
+  `ProjectMembership` activa en ese proyecto.
+- `ProjectMembership` (N:M `User`↔`Project`, con `role_in_project` opcional)
+  modela la pertenencia a un proyecto, distinta de la asignación puntual de
+  una tarea (`Task.assignee_id` + `Task.collaborators`).
+
 ## Modelo de datos (resumen)
 
 - `Project` → `Episode` (1:N). Un proyecto de tipo `SERIES` puede tener
   varios episodios (`S01E01`, `S01E02`, ...); otros tipos de proyecto usan
   la misma tabla `Episode` como unidad de trabajo (film, promocional, etc.).
+- `ProjectMembership`: pertenencia N:M de un usuario a varios proyectos.
 - `Task`: tareas ClickUp-like, con `origin_risk_id` opcional para trazar
-  tareas generadas por el motor de riesgos.
+  tareas generadas por el motor de riesgos, y `collaborators` (N:M) además
+  del responsable principal `assignee_id`.
 - `ADREntry`: unidad de seguimiento = proyecto + episodio + personaje +
   convocatoria (nunca cue a cue).
 - `Output`: ciclo de vida QC de un entregable (`PM_VO_5_1`, `MNE_2_0`,

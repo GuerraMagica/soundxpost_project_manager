@@ -9,12 +9,14 @@ import {
   episodesApi,
   projectsApi,
   tasksApi,
+  usersApi,
 } from "../api/endpoints";
 import { Card, EmptyState, ErrorState, Spinner } from "../components/Common";
 import { StatusBadge } from "../components/Badges";
+import { useAuth } from "../auth/AuthContext";
 import type { Episode, Project } from "../types";
 
-const TABS = ["Resumen", "Episodios", "Tareas", "ADR", "Delivery", "Archivo", "Actividad"] as const;
+const TABS = ["Resumen", "Episodios", "Tareas", "ADR", "Delivery", "Archivo", "Miembros", "Actividad"] as const;
 type Tab = (typeof TABS)[number];
 
 const TASK_STATUSES = ["PENDIENTE", "EN PROGRESO", "BLOQUEADO", "EN REVISIÓN", "FINALIZADO", "CANCELADO"];
@@ -86,6 +88,7 @@ export function ProjectDetail() {
       {tab === "ADR" && <ADRTab projectId={projectId} episodes={episodes ?? []} />}
       {tab === "Delivery" && <DeliveryTab projectId={projectId} episodes={episodes ?? []} />}
       {tab === "Archivo" && <ArchivoTab projectId={projectId} episodes={episodes ?? []} />}
+      {tab === "Miembros" && <MiembrosTab projectId={projectId} />}
       {tab === "Actividad" && <ActividadTab projectId={projectId} />}
     </div>
   );
@@ -536,6 +539,94 @@ function ArchivoTab({ projectId, episodes }: { projectId: number; episodes: Epis
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function MiembrosTab({ projectId }: { projectId: number }) {
+  const { user: currentUser } = useAuth();
+  const queryClient = useQueryClient();
+  const { data: members } = useQuery({ queryKey: ["members", projectId], queryFn: () => projectsApi.members(projectId) });
+  const { data: allUsers } = useQuery({ queryKey: ["users"], queryFn: usersApi.list });
+  const [userId, setUserId] = useState<number | "">("");
+  const [roleInProject, setRoleInProject] = useState("");
+
+  const canManage = currentUser ? ["ADMIN", "SUPERVISOR", "COORDINATOR"].includes(currentUser.role) : false;
+
+  const add = useMutation({
+    mutationFn: () => projectsApi.addMember(projectId, Number(userId), roleInProject || undefined),
+    onSuccess: () => {
+      setUserId("");
+      setRoleInProject("");
+      queryClient.invalidateQueries({ queryKey: ["members", projectId] });
+    },
+  });
+  const remove = useMutation({
+    mutationFn: (memberUserId: number) => projectsApi.removeMember(projectId, memberUserId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["members", projectId] }),
+  });
+
+  const availableUsers = (allUsers ?? []).filter((u) => !(members ?? []).some((m) => m.user_id === u.id));
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-500">
+        La pertenencia a un proyecto es independiente de la asignación de tareas concretas.
+        Un usuario puede participar en varios proyectos simultáneamente.
+      </p>
+
+      {canManage && (
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (userId) add.mutate();
+          }}
+        >
+          <label className="text-xs font-medium text-slate-600">
+            Usuario
+            <select value={userId} onChange={(e) => setUserId(e.target.value ? Number(e.target.value) : "")} className="mt-1 block rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+              <option value="">—</option>
+              {availableUsers.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
+            </select>
+          </label>
+          <label className="text-xs font-medium text-slate-600">
+            Rol en el proyecto (opcional)
+            <input value={roleInProject} onChange={(e) => setRoleInProject(e.target.value)} className="mt-1 block rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+          </label>
+          <button type="submit" className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
+            + Añadir miembro
+          </button>
+        </form>
+      )}
+
+      {!members || members.length === 0 ? (
+        <EmptyState message="Sin miembros asignados a este proyecto." />
+      ) : (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
+              <th className="py-2">Nombre</th><th>Rol global</th><th>Rol en el proyecto</th>{canManage && <th></th>}
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((m) => (
+              <tr key={m.id} className="border-b border-slate-100">
+                <td className="py-2">{m.user.name}</td>
+                <td className="text-slate-500">{m.user.role}</td>
+                <td className="text-slate-500">{m.role_in_project ?? "—"}</td>
+                {canManage && (
+                  <td>
+                    <button onClick={() => remove.mutate(m.user_id)} className="text-xs text-red-600 hover:underline">
+                      Quitar
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

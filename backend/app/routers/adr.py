@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app import models, schemas
+from app import auth, models, schemas
 from app.activity import log_activity
 from app.database import get_db
 
@@ -14,6 +14,7 @@ router = APIRouter(prefix="/api/adr", tags=["adr"])
 def list_adr_entries(
     project_id: Optional[int] = None,
     episode_id: Optional[int] = None,
+    current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
     query = db.query(models.ADREntry)
@@ -25,10 +26,17 @@ def list_adr_entries(
 
 
 @router.post("", response_model=schemas.ADREntryOut, status_code=201)
-def create_adr_entry(payload: schemas.ADREntryCreate, db: Session = Depends(get_db)):
+def create_adr_entry(
+    payload: schemas.ADREntryCreate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
     episode = db.get(models.Episode, payload.episode_id)
     if not episode:
         raise HTTPException(status_code=404, detail="Episodio no encontrado")
+    auth.ensure_project_access(db, current_user, payload.project_id)
+    if current_user.role not in auth.OPERATIONAL_ROLES:
+        raise HTTPException(status_code=403, detail="No tienes permiso para registrar ADR")
     entry = models.ADREntry(**payload.model_dump())
     db.add(entry)
     db.flush()
@@ -47,10 +55,18 @@ def create_adr_entry(payload: schemas.ADREntryCreate, db: Session = Depends(get_
 
 
 @router.patch("/{entry_id}", response_model=schemas.ADREntryOut)
-def update_adr_entry(entry_id: int, payload: schemas.ADREntryUpdate, db: Session = Depends(get_db)):
+def update_adr_entry(
+    entry_id: int,
+    payload: schemas.ADREntryUpdate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
     entry = db.get(models.ADREntry, entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Convocatoria ADR no encontrada")
+    auth.ensure_project_access(db, current_user, entry.project_id)
+    if current_user.role not in auth.OPERATIONAL_ROLES:
+        raise HTTPException(status_code=403, detail="No tienes permiso para modificar esta convocatoria")
     old_status = entry.status
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(entry, field, value)

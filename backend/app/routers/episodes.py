@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app import models, schemas
+from app import auth, models, schemas
 from app.activity import log_activity
 from app.database import get_db
 
@@ -9,10 +9,17 @@ router = APIRouter(prefix="/api/episodes", tags=["episodes"])
 
 
 @router.post("", response_model=schemas.EpisodeOut, status_code=201)
-def create_episode(payload: schemas.EpisodeCreate, db: Session = Depends(get_db)):
+def create_episode(
+    payload: schemas.EpisodeCreate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
     project = db.get(models.Project, payload.project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    auth.ensure_project_access(db, current_user, payload.project_id)
+    if current_user.role not in auth.OPERATIONAL_ROLES:
+        raise HTTPException(status_code=403, detail="No tienes permiso para crear episodios")
     episode = models.Episode(**payload.model_dump())
     db.add(episode)
     db.flush()
@@ -30,7 +37,11 @@ def create_episode(payload: schemas.EpisodeCreate, db: Session = Depends(get_db)
 
 
 @router.get("/{episode_id}", response_model=schemas.EpisodeOut)
-def get_episode(episode_id: int, db: Session = Depends(get_db)):
+def get_episode(
+    episode_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
     episode = db.get(models.Episode, episode_id)
     if not episode:
         raise HTTPException(status_code=404, detail="Episodio no encontrado")
@@ -38,10 +49,18 @@ def get_episode(episode_id: int, db: Session = Depends(get_db)):
 
 
 @router.patch("/{episode_id}", response_model=schemas.EpisodeOut)
-def update_episode(episode_id: int, payload: schemas.EpisodeUpdate, db: Session = Depends(get_db)):
+def update_episode(
+    episode_id: int,
+    payload: schemas.EpisodeUpdate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
     episode = db.get(models.Episode, episode_id)
     if not episode:
         raise HTTPException(status_code=404, detail="Episodio no encontrado")
+    auth.ensure_project_access(db, current_user, episode.project_id)
+    if current_user.role not in auth.OPERATIONAL_ROLES:
+        raise HTTPException(status_code=403, detail="No tienes permiso para modificar este episodio")
     old_status = episode.status
     old_mix_date = episode.mix_date
     for field, value in payload.model_dump(exclude_unset=True).items():

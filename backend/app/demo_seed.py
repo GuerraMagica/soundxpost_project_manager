@@ -12,16 +12,28 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.activity import log_activity
+from app.auth import hash_password
 from app.database import Base, SessionLocal, engine
 
 DEMO_PROJECT_CODE = "DEMO-S01"
 
+# Lab-only password shared by all DEMO users. Never used outside this seed.
+DEMO_PASSWORD = "DemoSoundXPost2026!"
 
-def _get_or_create_user(db: Session, name: str, email: str, role: str) -> models.User:
+
+def _get_or_create_user(db: Session, name: str, email: str, role: str, department: str | None = None) -> models.User:
     user = db.query(models.User).filter(models.User.email == email).first()
     if user:
         return user
-    user = models.User(name=name, email=email, role=role, is_demo=True)
+    user = models.User(
+        name=name,
+        email=email,
+        role=role,
+        department=department,
+        hashed_password=hash_password(DEMO_PASSWORD),
+        is_active=True,
+        is_demo=True,
+    )
     db.add(user)
     db.flush()
     return user
@@ -37,12 +49,13 @@ def seed_demo_data() -> str:
 
         today = date.today()
 
-        supervisor = _get_or_create_user(db, "DEMO Sound Supervisor", "demo.supervisor@soundxpost.local", "SUPERVISOR")
-        coordinator = _get_or_create_user(db, "DEMO Coordinator", "demo.coordinator@soundxpost.local", "COORDINATOR")
-        dialogue_editor = _get_or_create_user(db, "DEMO Dialogue Editor", "demo.dialogue@soundxpost.local", "EDITOR")
-        foley_editor = _get_or_create_user(db, "DEMO Foley Editor", "demo.foley@soundxpost.local", "EDITOR")
-        mixer = _get_or_create_user(db, "DEMO Mixing Engineer", "demo.mixer@soundxpost.local", "MIXER")
-        qc_user = _get_or_create_user(db, "DEMO QC Specialist", "demo.qc@soundxpost.local", "QC")
+        admin = _get_or_create_user(db, "DEMO Admin", "demo.admin@soundxpost.local", "ADMIN", "IT")
+        supervisor = _get_or_create_user(db, "DEMO Sound Supervisor", "demo.supervisor@soundxpost.local", "SUPERVISOR", "Sonido")
+        coordinator = _get_or_create_user(db, "DEMO Coordinator", "demo.coordinator@soundxpost.local", "COORDINATOR", "Postproducción")
+        dialogue_editor = _get_or_create_user(db, "DEMO Dialogue Editor", "demo.dialogue@soundxpost.local", "EDITOR", "Edición de diálogos")
+        foley_editor = _get_or_create_user(db, "DEMO Foley Editor", "demo.foley@soundxpost.local", "EDITOR", "Foley")
+        mixer = _get_or_create_user(db, "DEMO Mixing Engineer", "demo.mixer@soundxpost.local", "MIXER", "Mezcla")
+        qc_user = _get_or_create_user(db, "DEMO QC Specialist", "demo.qc@soundxpost.local", "QC", "QC")
         archive_user = _get_or_create_user(db, "DEMO Archive Specialist", "demo.archive@soundxpost.local", "ARCHIVE")
 
         project = models.Project(
@@ -64,6 +77,20 @@ def seed_demo_data() -> str:
             db, project_id=project.id, event_type="PROJECT_CREATED", entity_type="PROJECT",
             entity_id=project.id, new_state="ACTIVE", source="DEMO_SEED",
         )
+
+        # Membership: everyone except the admin (who has global access) is an
+        # explicit member of the DEMO project, mirroring "a user can belong to
+        # several projects" without inventing other DEMO projects in this MVP.
+        for member, role_in_project in [
+            (supervisor, "SUPERVISOR"),
+            (coordinator, "COORDINATOR"),
+            (dialogue_editor, "EDITOR"),
+            (foley_editor, "EDITOR"),
+            (mixer, "MIXER"),
+            (qc_user, "QC"),
+            (archive_user, "ARCHIVE"),
+        ]:
+            db.add(models.ProjectMembership(project_id=project.id, user_id=member.id, role_in_project=role_in_project))
 
         episodes: dict[str, models.Episode] = {}
         for i in range(1, 7):
@@ -194,7 +221,12 @@ def seed_demo_data() -> str:
         from app.risk_engine.rules import run_risk_engine
 
         result = run_risk_engine(db)
-        return f"Datos DEMO creados correctamente. Riesgos detectados en la primera evaluación: {result}"
+        return (
+            "Datos DEMO creados correctamente. "
+            f"Riesgos detectados en la primera evaluación: {result}. "
+            f"Usuarios DEMO creados con contraseña '{DEMO_PASSWORD}' "
+            "(demo.admin@soundxpost.local, demo.supervisor@soundxpost.local, ...)."
+        )
     finally:
         db.close()
 

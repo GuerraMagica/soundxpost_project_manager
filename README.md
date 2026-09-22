@@ -7,8 +7,8 @@ real de un departamento de sonido (ADR, QC, Printmaster, M&E, Stems, Foley,
 Delivery Package, etc.).
 
 > **Entorno de laboratorio.** Todos los datos son ficticios (DEMO). La
-> autenticación y los permisos **no** están implementados en este MVP —
-> ver [docs/SECURITY.md](docs/SECURITY.md). No apto para producción.
+> autenticación es local (email + contraseña, JWT) y **no** es apta para
+> producción — ver [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Stack
 
@@ -79,12 +79,12 @@ cp .env.example .env   # opcional; por defecto apunta a http://127.0.0.1:8000
 npm run dev
 ```
 
-Abre `http://localhost:5173` en el navegador.
+Abre `http://localhost:5173` en el navegador. Serás redirigido a `/login`.
 
-> Nota: si tu ruta de proyecto contiene caracteres especiales (por ejemplo
-> `:`), algunos comandos `npm run <script>` pueden fallar al resolver
-> binarios locales. En ese caso invoca los binarios directamente:
-> `./node_modules/.bin/vite`, `./node_modules/.bin/tsc`, etc.
+Usuarios DEMO disponibles (contraseña común, ver `backend/app/demo_seed.py`):
+`demo.admin@soundxpost.local` (ADMIN), `demo.supervisor@...`, `demo.coordinator@...`,
+`demo.dialogue@...`, `demo.foley@...`, `demo.mixer@...`, `demo.qc@...`, `demo.archive@...`.
+Contraseña: `DemoSoundXPost2026!`.
 
 ### 3. Tests del backend
 
@@ -95,21 +95,25 @@ pytest -q
 ```
 
 Los tests cubren: creación de proyectos/episodios/tareas/ADR vía API,
-detección de riesgos por regla, idempotencia del motor de riesgos y
-cierre automático de riesgos cuando la condición desaparece.
+detección de riesgos por regla, idempotencia del motor de riesgos, cierre
+automático de riesgos cuando la condición desaparece, login/JWT, creación de
+usuarios y membresías de proyecto, y rechazo de escrituras no autorizadas.
 
 ## Flujo funcional verificado en este MVP
 
-1. Crear un proyecto desde la interfaz (`Proyectos → + Nuevo proyecto`).
-2. Añadir episodios y asignar fechas de mezcla/entrega.
-3. Crear tareas y moverlas entre estados (vista Lista, Board y Calendario).
-4. Registrar y actualizar convocatorias ADR (personaje + convocatoria, no cue
+1. Iniciar sesión con un usuario DEMO (`/login`).
+2. Crear un proyecto desde la interfaz (`Proyectos → + Nuevo proyecto`).
+3. Añadir episodios y asignar fechas de mezcla/entrega.
+4. Añadir miembros a un proyecto (pestaña `Miembros`) y comprobar que un
+   usuario no perteneciente al proyecto recibe `403` al intentar modificarlo.
+5. Crear tareas y moverlas entre estados (vista Lista, Board y Calendario).
+6. Registrar y actualizar convocatorias ADR (personaje + convocatoria, no cue
    a cue).
-5. Registrar Outputs/QC y Delivery Packages, y ver cómo el motor de riesgos
+7. Registrar Outputs/QC y Delivery Packages, y ver cómo el motor de riesgos
    detecta versiones inconsistentes u outputs aprobados sin entrega.
-6. Consultar y reevaluar la Bandeja de riesgos (`Riesgos` / botón
+8. Consultar y reevaluar la Bandeja de riesgos (`Riesgos` / botón
    "Reevaluar riesgos"), verificando que no se duplican.
-7. Revisar el histórico de actividad por proyecto.
+9. Revisar el histórico de actividad por proyecto.
 
 Todo lo anterior persiste en `backend/soundxpost.db` (SQLite) y se sirve a
 través de la API real — no hay datos hardcodeados en el frontend.
@@ -119,11 +123,14 @@ través de la API real — no hay datos hardcodeados en el frontend.
 | Elemento | Estado |
 | --- | --- |
 | CRUD de proyectos, episodios, tareas, ADR, outputs, delivery, archivo | **Implementado** |
+| Autenticación local (JWT) y matriz de permisos por rol | **Implementado** — ver docs/SECURITY.md |
+| Membresías de proyecto (`ProjectMembership`), colaboradores de tarea | **Implementado** |
 | Motor de riesgos determinista (9 reglas del enunciado → 6 implementadas en el MVP) | **Implementado** |
 | Registro de actividad (event log) | **Implementado** |
 | Dashboard "Centro Operativo" | **Implementado** |
 | Datos DEMO ficticios | **Implementado** |
-| Autenticación / autorización por rol | **Simulado / no implementado** — ver docs/SECURITY.md |
+| Calendario interactivo (drag-and-drop), Gantt, notificaciones/email | **Pendiente** — ver docs/BACKLOG.md (Milestone 2.3+) |
+| SSO/OIDC corporativo | **Pendiente** (requiere aprobación de IT) |
 | Integración con Microsoft Graph / Outlook / Planner | **Pendiente de integración** (requiere aprobación de IT) |
 | Filesystem Scanner (SMB) | **Pendiente de integración** |
 | Importación PGPTSession / QC PDF | **Pendiente de integración** |
@@ -137,5 +144,6 @@ Más detalle en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) y
 
 - No se ha probado el arranque en Windows con rutas UNC (fuera de alcance del MVP).
 - No se ha verificado el comportamiento con datasets grandes (rendimiento).
-- No hay autenticación real; cualquier usuario del laboratorio tiene acceso completo a la API.
+- La autenticación es JWT local de laboratorio (sin SSO/OIDC corporativo, sin expiración configurable por IT).
 - El motor de riesgos se ejecuta bajo demanda (botón "Reevaluar riesgos"), no hay scheduler en background en este MVP.
+- No hay calendario interactivo con drag-and-drop, Gantt ni notificaciones todavía (Milestone 2.3+, ver docs/BACKLOG.md).

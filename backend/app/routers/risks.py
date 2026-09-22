@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app import models, schemas
+from app import auth, models, schemas
 from app.activity import log_activity
 from app.database import get_db
 from app.risk_engine.rules import run_risk_engine
@@ -16,6 +16,7 @@ def list_risks(
     project_id: Optional[int] = None,
     status_filter: Optional[str] = None,
     severity: Optional[str] = None,
+    current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
     query = db.query(models.Risk)
@@ -34,16 +35,25 @@ def list_risks(
 
 
 @router.post("/run", status_code=200)
-def trigger_risk_engine(db: Session = Depends(get_db)):
+def trigger_risk_engine(
+    current_user: models.User = Depends(auth.require_roles(*auth.MANAGEMENT_ROLES)),
+    db: Session = Depends(get_db),
+):
     """Manually re-evaluate all risk rules (idempotent)."""
     return run_risk_engine(db)
 
 
 @router.patch("/{risk_id}", response_model=schemas.RiskOut)
-def update_risk_status(risk_id: int, payload: schemas.RiskStatusUpdate, db: Session = Depends(get_db)):
+def update_risk_status(
+    risk_id: int,
+    payload: schemas.RiskStatusUpdate,
+    current_user: models.User = Depends(auth.require_roles(*auth.MANAGEMENT_ROLES)),
+    db: Session = Depends(get_db),
+):
     risk = db.get(models.Risk, risk_id)
     if not risk:
         raise HTTPException(status_code=404, detail="Riesgo no encontrado")
+    auth.ensure_project_access(db, current_user, risk.project_id)
     old_status = risk.status
     risk.status = payload.status
     db.flush()

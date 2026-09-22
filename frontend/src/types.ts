@@ -40,6 +40,18 @@ export interface User {
   name: string;
   email: string;
   role: string;
+  department: string | null;
+  is_active: boolean;
+  is_demo: boolean;
+}
+
+export interface ProjectMembership {
+  id: number;
+  project_id: number;
+  user_id: number;
+  role_in_project: string | null;
+  created_at: string;
+  user: User;
 }
 
 export interface Task {
@@ -58,6 +70,7 @@ export interface Task {
   origin_risk_id: number | null;
   created_at: string;
   resolved_at: string | null;
+  collaborator_ids: number[];
 }
 
 export interface ADREntry {
